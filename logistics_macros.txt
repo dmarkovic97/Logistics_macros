@@ -1,0 +1,1042 @@
+Sub ProcessSAPRows()
+    Dim SapGuiAuto As Object
+    Dim application As Object
+    Dim connection As Object
+    Dim session As Object
+    Dim CurrentRow As Long
+    Dim lastRow As Long
+    Dim ValueD As String
+    Dim ValueG As String
+    Dim ValueC As String
+    Dim LastFourCharsC As String
+    Dim Route As String
+    Dim FirstFourChars As String
+    Dim ValueE As Variant
+
+    ' Establish SAP connection
+    On Error Resume Next
+    Set SapGuiAuto = GetObject("SAPGUI")
+    If SapGuiAuto Is Nothing Then
+        MsgBox "SAP GUI is not running. Please start SAP and try again.", vbExclamation
+        Exit Sub
+    End If
+
+    Set application = SapGuiAuto.GetScriptingEngine
+    If application Is Nothing Then
+        MsgBox "Unable to access SAP scripting engine. Ensure scripting is enabled.", vbExclamation
+        Exit Sub
+    End If
+
+    Set connection = application.Children(0)
+    If connection Is Nothing Then
+        MsgBox "No active SAP connection found.", vbExclamation
+        Exit Sub
+    End If
+
+    Set session = connection.Children(0)
+    If session Is Nothing Then
+        MsgBox "No active SAP session found.", vbExclamation
+        Exit Sub
+    End If
+    On Error GoTo 0
+
+    ' Get the last row in the sheet (assuming column A is filled)
+    lastRow = Worksheets("Sheet3").Cells(Worksheets("Sheet1").Rows.Count, 1).End(xlUp).row
+
+    ' Loop through rows to find the first row with no value in column H
+    For CurrentRow = 1 To lastRow
+        If IsEmpty(Worksheets("Sheet3").Cells(CurrentRow, 8).Value) Then ' Column H = 8
+            ' Check if column E has the value 28 or 26
+            ValueE = Worksheets("Sheet3").Cells(CurrentRow, 5).Value ' Column E = 5
+            If ValueE = 28 Or ValueE = 26 Then
+                ' Get values from the specified columns
+                ValueD = Worksheets("Sheet3").Cells(CurrentRow, 4).Value ' Column D = 4
+                ValueG = Worksheets("Sheet3").Cells(CurrentRow, 7).Value ' Column G = 7
+                ValueC = Worksheets("Sheet3").Cells(CurrentRow, 3).Value ' Column C = 3
+
+                ' Extract the first 4 characters and last 4 characters
+                FirstFourChars = Left(ValueC, 4)
+                LastFourCharsC = Right(ValueC, 4)
+
+                ' Determine the route based on the value of FirstFourChars
+                If StrComp(FirstFourChars, "RS10", vbTextCompare) = 0 Then
+                    Route = "J25261"
+                ElseIf StrComp(FirstFourChars, "RS70", vbTextCompare) = 0 Then
+                    Route = "J25269"
+                Else
+                    Route = "" ' Default or error case
+                End If
+
+                ' Perform SAP automation
+                Call SAPAutomation(session, FirstFourChars, ValueD, ValueG, LastFourCharsC, Route)
+
+                ' Exit the loop after processing the first valid row
+                Exit For
+            End If
+        End If
+    Next CurrentRow
+End Sub
+
+Sub SAPAutomation(session As Object, FirstFourChars As String, ValueD As String, ValueG As String, LastFourCharsC As String, Route As String)
+    ' Maximize SAP window
+    session.FindById("wnd[0]").maximize
+
+    ' Perform SAP transactions
+    session.FindById("wnd[0]/tbar[0]/okcd").Text = "/nME21N"
+    session.FindById("wnd[0]").sendVKey 0
+    session.FindById("wnd[0]/usr/subSUB0:SAPLMEGUI:0016/subSUB0:SAPLMEGUI:0030/subSUB1:SAPLMEGUI:1105/ctxtMEPO_TOPLINE-SUPERFIELD").Text = FirstFourChars
+    session.FindById("wnd[0]/usr/subSUB0:SAPLMEGUI:0016/subSUB2:SAPLMEVIEWS:1100/subSUB2:SAPLMEVIEWS:1200/subSUB1:SAPLMEGUI:1211/tblSAPLMEGUITC_1211/ctxtMEPO1211-EMATN[4,0]").Text = ValueD
+    session.FindById("wnd[0]/usr/subSUB0:SAPLMEGUI:0016/subSUB2:SAPLMEVIEWS:1100/subSUB2:SAPLMEVIEWS:1200/subSUB1:SAPLMEGUI:1211/tblSAPLMEGUITC_1211/txtMEPO1211-MENGE[5,0]").Text = ValueG
+    session.FindById("wnd[0]/usr/subSUB0:SAPLMEGUI:0016/subSUB2:SAPLMEVIEWS:1100/subSUB2:SAPLMEVIEWS:1200/subSUB1:SAPLMEGUI:1211/tblSAPLMEGUITC_1211/ctxtMEPO1211-NAME1[6,0]").Text = LastFourCharsC
+    session.FindById("wnd[0]/usr/subSUB0:SAPLMEGUI:0015/subSUB3:SAPLMEVIEWS:1100/subSUB2:SAPLMEVIEWS:1200/subSUB1:SAPLMEGUI:1301/subSUB2:SAPLMEGUI:1303/tabsITEM_DETAIL/tabpTABIDT19/ssubTABSTRIPCONTROL1SUB:SAPLMEGUI:1331/ctxtMEPO1331-ROUTE").Text = Route
+    session.FindById("wnd[0]").sendVKey 0
+    session.FindById("wnd[0]").sendVKey 11
+    session.FindById("wnd[1]/usr/btnSPOP-VAROPTION1").Press
+    session.FindById("wnd[0]/tbar[0]/btn[15]").Press
+End Sub
+
+Public SapGuiAuto, application, connection, session
+Declare PtrSafe Sub Sleep Lib "kernel32" (ByVal dwMilliseconds As LongPtr)
+Sub ExportVA05()
+
+If Not IsObject(application) Then
+   Set SapGuiAuto = GetObject("SAPGUI")
+   Set application = SapGuiAuto.GetScriptingEngine
+End If
+If Not IsObject(connection) Then
+   Set connection = application.Children(0)
+End If
+If Not IsObject(session) Then
+   Set session = connection.Children(0)
+End If
+If IsObject(WScript) Then
+   WScript.ConnectObject session, "on"
+   WScript.ConnectObject application, "on"
+End If
+
+Dim dateValue As Date
+dateValue = Date
+dateValue = dateValue - 10
+
+Dim formattedDate As String
+formattedDate = Format(dateValue, "dd.mm.yyyy")
+
+Dim filePath As String
+filePath = "C:\Users\a428079\OneDrive - Molson Coors Brewing Company\Desktop\Provera stanja\VA05.xlsx"
+
+session.FindById("wnd[0]").maximize
+session.FindById("wnd[0]/tbar[0]/okcd").Text = "/nva05"
+session.FindById("wnd[0]").sendVKey 0
+session.FindById("wnd[0]/usr/ctxtVBCOM-AUDAT").Text = formattedDate
+session.FindById("wnd[0]/usr/ctxtVBCOM-AUDAT").SetFocus
+session.FindById("wnd[0]/usr/ctxtVBCOM-AUDAT").CaretPosition = 10
+session.FindById("wnd[0]").sendVKey 0
+session.FindById("wnd[0]/usr/cntlGRID1/shellcont/shell/shellcont[1]/shell").setCurrentCell 1, "VBELN"
+session.FindById("wnd[0]/usr/cntlGRID1/shellcont/shell/shellcont[1]/shell").contextMenu
+session.FindById("wnd[0]/usr/cntlGRID1/shellcont/shell/shellcont[1]/shell").selectContextMenuItem "&XXL"
+session.FindById("wnd[1]/usr/cmbG_LISTBOX").SetFocus
+session.FindById("wnd[1]/usr/cmbG_LISTBOX").Key = "33"
+session.FindById("wnd[1]/tbar[0]/btn[0]").Press
+session.FindById("wnd[1]/tbar[0]/btn[0]").Press
+session.FindById("wnd[1]/usr/subSUBSCREEN_STEPLOOP:SAPLSPO5:0150/sub:SAPLSPO5:0150/radSPOPLI-SELFLAG[0,0]").Select
+session.FindById("wnd[1]/tbar[0]/btn[0]").Press
+session.FindById("wnd[1]/tbar[0]/btn[0]").Press
+session.FindById("wnd[0]/tbar[0]/btn[15]").Press
+
+
+SaveAsAndExit (filePath)
+
+session.FindById("wnd[0]/tbar[0]/btn[15]").Press
+
+End Sub
+Sub ExportMB52()
+
+If Not IsObject(application) Then
+   Set SapGuiAuto = GetObject("SAPGUI")
+   Set application = SapGuiAuto.GetScriptingEngine
+End If
+If Not IsObject(connection) Then
+   Set connection = application.Children(0)
+End If
+If Not IsObject(session) Then
+   Set session = connection.Children(0)
+End If
+If IsObject(WScript) Then
+   WScript.ConnectObject session, "on"
+   WScript.ConnectObject application, "on"
+   
+End If
+
+Dim filePath As String
+filePath = "C:\Users\a428079\OneDrive - Molson Coors Brewing Company\Desktop\Provera stanja\MB52.xlsx"
+
+
+session.FindById("wnd[0]").maximize
+session.FindById("wnd[0]/tbar[0]/okcd").Text = "/nMB52"
+session.FindById("wnd[0]").sendVKey 0
+session.FindById("wnd[0]/usr/btn%_MATNR_%_APP_%-VALU_PUSH").Press
+session.FindById("wnd[1]/tbar[0]/btn[16]").Press
+session.FindById("wnd[1]").sendVKey 8
+session.FindById("wnd[0]/usr/ctxtWERKS-LOW").Text = "RS10"
+session.FindById("wnd[0]/usr/ctxtLGORT-LOW").Text = "1001"
+session.FindById("wnd[0]/usr/ctxtP_VARI").Text = "/MAGACINSKO"
+session.FindById("wnd[0]/usr/ctxtP_VARI").SetFocus
+session.FindById("wnd[0]/usr/ctxtP_VARI").CaretPosition = 11
+session.FindById("wnd[0]/tbar[1]/btn[8]").Press
+session.FindById("wnd[0]/usr/lbl[20,22]").SetFocus
+session.FindById("wnd[0]/usr/lbl[20,22]").CaretPosition = 0
+session.FindById("wnd[0]").sendVKey 43
+session.FindById("wnd[1]/usr/cmbG_LISTBOX").SetFocus
+session.FindById("wnd[1]/usr/cmbG_LISTBOX").Key = "33"
+session.FindById("wnd[1]/tbar[0]/btn[0]").Press
+session.FindById("wnd[1]/tbar[0]/btn[0]").Press
+session.FindById("wnd[1]/usr/subSUBSCREEN_STEPLOOP:SAPLSPO5:0150/sub:SAPLSPO5:0150/radSPOPLI-SELFLAG[0,0]").Select
+session.FindById("wnd[1]/usr/subSUBSCREEN_STEPLOOP:SAPLSPO5:0150/sub:SAPLSPO5:0150/radSPOPLI-SELFLAG[0,0]").SetFocus
+session.FindById("wnd[1]/tbar[0]/btn[0]").Press
+session.FindById("wnd[1]/tbar[0]/btn[0]").Press
+
+
+SaveAsAndExit (filePath)
+
+session.FindById("wnd[0]/tbar[0]/btn[15]").Press
+session.FindById("wnd[0]/tbar[0]/btn[15]").Press
+
+
+End Sub
+Sub ExportVT11(filePath As String, dc As String)
+If Not IsObject(application) Then
+   Set SapGuiAuto = GetObject("SAPGUI")
+   Set application = SapGuiAuto.GetScriptingEngine
+End If
+If Not IsObject(connection) Then
+   Set connection = application.Children(0)
+End If
+If Not IsObject(session) Then
+   Set session = connection.Children(0)
+End If
+If IsObject(WScript) Then
+   WScript.ConnectObject session, "on"
+   WScript.ConnectObject application, "on"
+End If
+
+Dim dateValue As Date
+Dim formattedDate As String
+dateValue = Date
+
+
+formattedDate = Format(dateValue, "dd.mm.yyyy")
+'formattedDate = "11.11.2024"
+
+
+session.FindById("wnd[0]").maximize
+session.FindById("wnd[0]/tbar[0]/okcd").Text = "/nvt11"
+session.FindById("wnd[0]").sendVKey 0
+session.FindById("wnd[0]/usr/ctxtK_TPLST-LOW").Text = ""
+session.FindById("wnd[0]/usr/ctxtK_TPLST-LOW").SetFocus
+session.FindById("wnd[0]/usr/ctxtK_TPLST-LOW").CaretPosition = 1
+session.FindById("wnd[0]/usr/btn%_K_TPLST_%_APP_%-VALU_PUSH").Press
+session.FindById("wnd[1]/usr/tabsTAB_STRIP/tabpSIVA/ssubSCREEN_HEADER:SAPLALDB:3010/tblSAPLALDBSINGLE/ctxtRSCSEL_255-SLOW_I[1,0]").Text = dc
+session.FindById("wnd[1]/usr/tabsTAB_STRIP/tabpSIVA/ssubSCREEN_HEADER:SAPLALDB:3010/tblSAPLALDBSINGLE/ctxtRSCSEL_255-SLOW_I[1,1]").SetFocus
+session.FindById("wnd[1]/usr/tabsTAB_STRIP/tabpSIVA/ssubSCREEN_HEADER:SAPLALDB:3010/tblSAPLALDBSINGLE/ctxtRSCSEL_255-SLOW_I[1,1]").CaretPosition = 4
+session.FindById("wnd[1]/tbar[0]/btn[8]").Press
+session.FindById("wnd[0]/usr/ctxtK_ERDAT-LOW").Text = formattedDate
+session.FindById("wnd[0]/usr/ctxtK_ERDAT-LOW").SetFocus
+session.FindById("wnd[0]/usr/ctxtK_ERDAT-LOW").CaretPosition = 10
+session.FindById("wnd[0]/tbar[1]/btn[8]").Press
+session.FindById("wnd[0]/mbar/menu[3]/menu[0]/menu[1]").Select
+session.FindById("wnd[1]/usr/lbl[1,11]").SetFocus
+session.FindById("wnd[1]/usr/lbl[1,11]").CaretPosition = 1
+session.FindById("wnd[1]").sendVKey 2
+session.FindById("wnd[0]/usr/lbl[73,4]").SetFocus
+session.FindById("wnd[0]/usr/lbl[73,4]").CaretPosition = 0
+session.FindById("wnd[0]").sendVKey 44
+session.FindById("wnd[1]/usr/cmbG_LISTBOX").SetFocus
+session.FindById("wnd[1]/usr/cmbG_LISTBOX").Key = "33"
+session.FindById("wnd[1]/tbar[0]/btn[0]").Press
+session.FindById("wnd[1]/tbar[0]/btn[0]").Press
+session.FindById("wnd[1]/usr/subSUBSCREEN_STEPLOOP:SAPLSPO5:0150/sub:SAPLSPO5:0150/radSPOPLI-SELFLAG[0,0]").Select
+session.FindById("wnd[1]/usr/subSUBSCREEN_STEPLOOP:SAPLSPO5:0150/sub:SAPLSPO5:0150/radSPOPLI-SELFLAG[0,0]").SetFocus
+session.FindById("wnd[1]/tbar[0]/btn[0]").Press
+session.FindById("wnd[1]/tbar[0]/btn[0]").Press
+
+SaveAsAndExit (filePath)
+
+session.FindById("wnd[0]/tbar[0]/btn[15]").Press
+session.FindById("wnd[0]/tbar[0]/btn[15]").Press
+End Sub
+Sub SaveAsAndExit(filePath As String)
+
+    
+    ' Check if the file exists and delete it
+    If Dir(filePath) <> "" Then
+        Kill filePath
+    End If
+    
+    ' Save the file
+    ActiveWorkbook.SaveAs fileName:=filePath, FileFormat:=xlOpenXMLWorkbook
+    
+    ' Introduce a delay (e.g., 5 seconds)
+
+    
+    ' Close the workbook
+    ActiveWorkbook.Close SaveChanges:=False
+    
+    ' Close Excel
+    application.Quit
+    
+    ' Allow the system to process the quit command
+    DoEvents
+End Sub
+Sub ExportZotprema(filePath As String, dc As String)
+
+If Not IsObject(application) Then
+   Set SapGuiAuto = GetObject("SAPGUI")
+   Set application = SapGuiAuto.GetScriptingEngine
+End If
+If Not IsObject(connection) Then
+   Set connection = application.Children(0)
+End If
+If Not IsObject(session) Then
+   Set session = connection.Children(0)
+End If
+If IsObject(WScript) Then
+   WScript.ConnectObject session, "on"
+   WScript.ConnectObject application, "on"
+End If
+
+
+
+Dim todayDate As Date
+Dim tomorrowDate As Date
+Dim mondayDate As Date
+
+Dim formattedDateM As String
+Dim formattedDate As String
+
+todayDate = Date
+'todayDate = "11.11.2024"
+
+If Weekday(todayDate, vbMonday) = 5 Then
+
+    tomorrowDate = todayDate + 1
+    formattedDate = Format(tomorrowDate, "dd.mm.yyyy")
+    mondayDate = todayDate + 3
+    formattedDateM = Format(mondayDate, "dd.mm.yyyy")
+Else
+    tomorrowDate = todayDate + 1
+    formattedDateM = Format(tomorrowDate, "dd.mm.yyyy")
+    formattedDate = Format(tomorrowDate, "dd.mm.yyyy")
+End If
+
+session.FindById("wnd[0]").maximize
+session.FindById("wnd[0]/tbar[0]/okcd").Text = "/nzotprema"
+session.FindById("wnd[0]").sendVKey 0
+session.FindById("wnd[0]/usr/btn%_SP$00014_%_APP_%-VALU_PUSH").Press
+session.FindById("wnd[1]/tbar[0]/btn[16]").Press
+session.FindById("wnd[1]/usr/tabsTAB_STRIP/tabpSIVA/ssubSCREEN_HEADER:SAPLALDB:3010/tblSAPLALDBSINGLE/ctxtRSCSEL_255-SLOW_I[1,0]").Text = formattedDate
+session.FindById("wnd[1]/usr/tabsTAB_STRIP/tabpSIVA/ssubSCREEN_HEADER:SAPLALDB:3010/tblSAPLALDBSINGLE/ctxtRSCSEL_255-SLOW_I[1,1]").Text = formattedDateM
+session.FindById("wnd[1]/usr/tabsTAB_STRIP/tabpSIVA/ssubSCREEN_HEADER:SAPLALDB:3010/tblSAPLALDBSINGLE/ctxtRSCSEL_255-SLOW_I[1,1]").SetFocus
+session.FindById("wnd[1]/usr/tabsTAB_STRIP/tabpSIVA/ssubSCREEN_HEADER:SAPLALDB:3010/tblSAPLALDBSINGLE/ctxtRSCSEL_255-SLOW_I[1,1]").CaretPosition = 10
+session.FindById("wnd[1]/tbar[0]/btn[8]").Press
+session.FindById("wnd[0]/usr/btn%_SP$00020_%_APP_%-VALU_PUSH").Press
+session.FindById("wnd[1]/tbar[0]/btn[16]").Press
+session.FindById("wnd[1]/usr/tabsTAB_STRIP/tabpSIVA/ssubSCREEN_HEADER:SAPLALDB:3010/tblSAPLALDBSINGLE/ctxtRSCSEL_255-SLOW_I[1,0]").Text = dc
+session.FindById("wnd[1]/usr/tabsTAB_STRIP/tabpSIVA/ssubSCREEN_HEADER:SAPLALDB:3010/tblSAPLALDBSINGLE/ctxtRSCSEL_255-SLOW_I[1,1]").SetFocus
+session.FindById("wnd[1]/usr/tabsTAB_STRIP/tabpSIVA/ssubSCREEN_HEADER:SAPLALDB:3010/tblSAPLALDBSINGLE/ctxtRSCSEL_255-SLOW_I[1,1]").CaretPosition = 4
+session.FindById("wnd[1]/tbar[0]/btn[8]").Press
+session.FindById("wnd[0]/usr/btn%_SP$00021_%_APP_%-VALU_PUSH").Press
+session.FindById("wnd[1]/tbar[0]/btn[16]").Press
+session.FindById("wnd[1]/tbar[0]/btn[8]").Press
+session.FindById("wnd[0]/usr/ctxt%LAYOUT").Text = "/IR"
+session.FindById("wnd[0]/usr/ctxt%LAYOUT").SetFocus
+session.FindById("wnd[0]/usr/ctxt%LAYOUT").CaretPosition = 3
+session.FindById("wnd[0]/tbar[1]/btn[8]").Press
+session.FindById("wnd[0]/usr/cntlCONTAINER/shellcont/shell").setCurrentCell 7, "STRAS"
+session.FindById("wnd[0]/usr/cntlCONTAINER/shellcont/shell").SelectedRows = "7"
+session.FindById("wnd[0]/usr/cntlCONTAINER/shellcont/shell").contextMenu
+session.FindById("wnd[0]/usr/cntlCONTAINER/shellcont/shell").selectContextMenuItem "&XXL"
+session.FindById("wnd[1]/usr/cmbG_LISTBOX").SetFocus
+session.FindById("wnd[1]/usr/cmbG_LISTBOX").Key = "33"
+session.FindById("wnd[1]/tbar[0]/btn[0]").Press
+session.FindById("wnd[1]/tbar[0]/btn[0]").Press
+session.FindById("wnd[1]/usr/subSUBSCREEN_STEPLOOP:SAPLSPO5:0150/sub:SAPLSPO5:0150/radSPOPLI-SELFLAG[0,0]").Select
+session.FindById("wnd[1]/usr/subSUBSCREEN_STEPLOOP:SAPLSPO5:0150/sub:SAPLSPO5:0150/radSPOPLI-SELFLAG[0,0]").SetFocus
+session.FindById("wnd[1]/tbar[0]/btn[0]").Press
+session.FindById("wnd[1]/tbar[0]/btn[0]").Press
+
+SaveAsAndExit (filePath)
+
+session.FindById("wnd[0]/tbar[0]/btn[15]").Press
+session.FindById("wnd[0]/tbar[0]/btn[15]").Press
+
+
+
+End Sub
+Sub ExportZotpremaPak()
+
+If Not IsObject(application) Then
+   Set SapGuiAuto = GetObject("SAPGUI")
+   Set application = SapGuiAuto.GetScriptingEngine
+End If
+If Not IsObject(connection) Then
+   Set connection = application.Children(0)
+End If
+If Not IsObject(session) Then
+   Set session = connection.Children(0)
+End If
+If IsObject(WScript) Then
+   WScript.ConnectObject session, "on"
+   WScript.ConnectObject application, "on"
+End If
+
+Dim filePath As String
+filePath = "C:\Users\a428079\OneDrive - Molson Coors Brewing Company\Desktop\Pakovanje\pak.xlsx"
+
+
+Dim todayDate As Date
+Dim tomorrowDate As Date
+Dim mondayDate As Date
+
+Dim formattedDateM As String
+Dim formattedDate As String
+
+todayDate = Date
+
+If Weekday(todayDate, vbMonday) = 5 Then
+
+    tomorrowDate = todayDate + 1
+    formattedDate = Format(tomorrowDate, "dd.mm.yyyy")
+    mondayDate = todayDate + 3
+    formattedDateM = Format(mondayDate, "dd.mm.yyyy")
+Else
+    tomorrowDate = todayDate + 1
+    formattedDateM = Format(tomorrowDate, "dd.mm.yyyy")
+    formattedDate = Format(tomorrowDate, "dd.mm.yyyy")
+End If
+
+session.FindById("wnd[0]").maximize
+session.FindById("wnd[0]/tbar[0]/okcd").Text = "/nzotprema"
+session.FindById("wnd[0]").sendVKey 0
+session.FindById("wnd[0]/usr/btn%_SP$00014_%_APP_%-VALU_PUSH").Press
+session.FindById("wnd[1]/tbar[0]/btn[16]").Press
+session.FindById("wnd[1]/usr/tabsTAB_STRIP/tabpSIVA/ssubSCREEN_HEADER:SAPLALDB:3010/tblSAPLALDBSINGLE/ctxtRSCSEL_255-SLOW_I[1,0]").Text = formattedDate
+session.FindById("wnd[1]/usr/tabsTAB_STRIP/tabpSIVA/ssubSCREEN_HEADER:SAPLALDB:3010/tblSAPLALDBSINGLE/ctxtRSCSEL_255-SLOW_I[1,1]").Text = formattedDateM
+session.FindById("wnd[1]/usr/tabsTAB_STRIP/tabpSIVA/ssubSCREEN_HEADER:SAPLALDB:3010/tblSAPLALDBSINGLE/ctxtRSCSEL_255-SLOW_I[1,1]").SetFocus
+session.FindById("wnd[1]/usr/tabsTAB_STRIP/tabpSIVA/ssubSCREEN_HEADER:SAPLALDB:3010/tblSAPLALDBSINGLE/ctxtRSCSEL_255-SLOW_I[1,1]").CaretPosition = 10
+session.FindById("wnd[1]/tbar[0]/btn[8]").Press
+session.FindById("wnd[0]/usr/btn%_SP$00020_%_APP_%-VALU_PUSH").Press
+session.FindById("wnd[1]/tbar[0]/btn[16]").Press
+session.FindById("wnd[1]/usr/tabsTAB_STRIP/tabpSIVA/ssubSCREEN_HEADER:SAPLALDB:3010/tblSAPLALDBSINGLE/ctxtRSCSEL_255-SLOW_I[1,1]").Text = "RS40"
+session.FindById("wnd[1]/usr/tabsTAB_STRIP/tabpSIVA/ssubSCREEN_HEADER:SAPLALDB:3010/tblSAPLALDBSINGLE/ctxtRSCSEL_255-SLOW_I[1,1]").SetFocus
+session.FindById("wnd[1]/usr/tabsTAB_STRIP/tabpSIVA/ssubSCREEN_HEADER:SAPLALDB:3010/tblSAPLALDBSINGLE/ctxtRSCSEL_255-SLOW_I[1,1]").CaretPosition = 4
+session.FindById("wnd[1]/tbar[0]/btn[8]").Press
+session.FindById("wnd[0]/usr/btn%_SP$00021_%_APP_%-VALU_PUSH").Press
+session.FindById("wnd[1]/tbar[0]/btn[16]").Press
+session.FindById("wnd[1]/tbar[0]/btn[8]").Press
+session.FindById("wnd[0]/usr/ctxt%LAYOUT").SetFocus
+session.FindById("wnd[0]/usr/ctxt%LAYOUT").CaretPosition = 3
+session.FindById("wnd[0]/tbar[1]/btn[8]").Press
+session.FindById("wnd[0]/usr/cntlCONTAINER/shellcont/shell").setCurrentCell 7, "STRAS"
+session.FindById("wnd[0]/usr/cntlCONTAINER/shellcont/shell").SelectedRows = "7"
+session.FindById("wnd[0]/usr/cntlCONTAINER/shellcont/shell").contextMenu
+session.FindById("wnd[0]/usr/cntlCONTAINER/shellcont/shell").selectContextMenuItem "&XXL"
+session.FindById("wnd[1]/usr/cmbG_LISTBOX").SetFocus
+session.FindById("wnd[1]/usr/cmbG_LISTBOX").Key = "33"
+session.FindById("wnd[1]/tbar[0]/btn[0]").Press
+session.FindById("wnd[1]/tbar[0]/btn[0]").Press
+session.FindById("wnd[1]/usr/subSUBSCREEN_STEPLOOP:SAPLSPO5:0150/sub:SAPLSPO5:0150/radSPOPLI-SELFLAG[0,0]").Select
+session.FindById("wnd[1]/usr/subSUBSCREEN_STEPLOOP:SAPLSPO5:0150/sub:SAPLSPO5:0150/radSPOPLI-SELFLAG[0,0]").SetFocus
+session.FindById("wnd[1]/tbar[0]/btn[0]").Press
+session.FindById("wnd[1]/tbar[0]/btn[0]").Press
+
+SaveAsAndExit (filePath)
+
+session.FindById("wnd[0]/tbar[0]/btn[15]").Press
+session.FindById("wnd[0]/tbar[0]/btn[15]").Press
+
+
+End Sub
+Sub IR(filePathEksport As String, filePathBaza As String)
+Dim xlApp As Object
+Dim xlWorkbookEksport As Object
+Dim xlWorkbookBaza As Object
+Dim xlWorksheetEksport As Object
+Dim xlWorksheetBaza As Object
+Dim lastRowEksport As Integer
+Dim lastRowBaza As Integer
+
+' Paths to the Excel files
+
+' Create a new Excel application object
+Set xlApp = CreateObject("Excel.Application")
+
+' Make Excel visible
+xlApp.Visible = True
+
+' Open the Eksport workbook and the Baza workbook
+Set xlWorkbookEksport = xlApp.Workbooks.Open(filePathEksport)
+Set xlWorkbookBaza = xlApp.Workbooks.Open(filePathBaza)
+
+' Set the worksheet (assuming it's the first one; adjust if needed)
+Set xlWorksheetEksport = xlWorkbookEksport.Sheets(1)
+Set xlWorksheetBaza = xlWorkbookBaza.Sheets(1)
+
+' Refresh all data connections in the Eksport workbook
+xlWorkbookEksport.RefreshAll
+
+' Find the last row with data in column A of Eksport file
+lastRowEksport = xlWorksheetEksport.Cells(xlWorksheetEksport.Rows.Count, "A").End(-4162).row ' -4162 is xlUp
+
+' Define the range to copy from Eksport (A2 to I[lastRow])
+Set copyRange = xlWorksheetEksport.Range("A2:I" & lastRowEksport)
+
+' Clear the previous data in the Baza file (A2:I[lastRow])
+lastRowBaza = xlWorksheetBaza.Cells(xlWorksheetBaza.Rows.Count, "A").End(-4162).row ' Find the last row in the Baza file
+If lastRowBaza >= 2 Then ' Only clear if there is data beyond the header
+    xlWorksheetBaza.Range("A2:I" & lastRowBaza).ClearContents
+End If
+
+' Paste the values directly from Eksport to Baza
+xlWorksheetBaza.Range("A2").Resize(copyRange.Rows.Count, copyRange.Columns.Count).Value = copyRange.Value
+
+' Format columns G and I as Date (skip the header row)
+xlWorksheetBaza.Range("G2:G" & lastRowEksport).NumberFormat = "d.m.yyyy"
+xlWorksheetBaza.Range("I2:I" & lastRowEksport).NumberFormat = "d.m.yyyy"
+
+' Disable alerts to overwrite the existing file without prompts
+xlApp.DisplayAlerts = False
+
+' Save the Baza workbook (overwrite existing file)
+xlWorkbookBaza.Save
+
+' Re-enable alerts
+xlApp.DisplayAlerts = True
+
+' Leave both workbooks open (do not save or close the Eksport file)
+
+' Clean up objects but keep Excel open
+Set xlWorksheetEksport = Nothing
+Set xlWorksheetBaza = Nothing
+Set xlWorkbookEksport = Nothing
+Set xlWorkbookBaza = Nothing
+Set xlApp = Nothing
+
+End Sub
+Sub ST(filePathSt As String, filePathDc As String)
+
+    Dim xlApp As Object
+    Dim xlWorkbookStApa As Object
+    Dim xlWorkbookNis As Object
+    Dim xlWorkbookDcApatin As Object
+    Dim xlWorkbookDcNis As Object
+    Dim xlWorksheetStApa As Object
+    Dim xlWorksheetNis As Object
+    Dim xlWorksheetDcApatin As Object
+    Dim xlWorksheetDcNis As Object
+    Dim filePathStApa As String
+    Dim filePathNis As String
+    Dim filePathDcApatin As String
+    Dim filePathDcNis As String
+
+    ' Create a new Excel application object
+    Set xlApp = CreateObject("Excel.Application")
+
+    ' Make Excel visible
+    xlApp.Visible = True
+
+    ' Open the existing workbooks
+    Set xlWorkbookStApa = xlApp.Workbooks.Open(filePathSt)
+
+    ' Open the new workbooks
+    Set xlWorkbookDcApatin = xlApp.Workbooks.Open(filePathDc)
+
+    ' Set the worksheets (assuming they're the first ones; adjust if needed)
+    Set xlWorksheetSt = xlWorkbookStApa.Sheets(2)
+    Set xlWorksheetDc = xlWorkbookDcApatin.Sheets(1) ' Adjust if needed
+
+    ' Refresh all data connections in the workbooks
+    xlWorkbookSt.RefreshAll
+
+
+End Sub
+Sub ControlReportApa()
+
+Dim filePath As String
+Dim filePathEksport As String
+Dim filePathBaza As String
+Dim dc As String
+
+dc = "RS40"
+
+filePath = "R:\Dnevni izvestaji\Spisak transporta - eksportovano\Import_folder\DC Apatin_Eksport_Sap_VT11.xlsx"
+Call ExportVT11(filePath, dc)
+filePath = "R:\Dnevni izvestaji\Istek roka\1 Masovni Import\ZOTPREMA\ZOTPREMA APATIN.xlsx"
+Call ExportZotprema(filePath, dc)
+
+filePath = "R:\Dnevni izvestaji\Istek roka\1 Masovni Import\DC Apatin\Eksport1.xlsx"
+filePathBaza = "R:\Dnevni izvestaji\Istek roka\1 Masovni Import\DC Apatin\Baza\Baza Apa.xlsx"
+
+Call IR(filePath, filePathBaza)
+filePath = "R:\Dnevni izvestaji\Istek roka\1 Masovni Import\ZOTPREMA\ZOTPREMA APATIN.xlsx"
+
+filePathEksport = "R:\Dnevni izvestaji\Spisak transporta - eksportovano\DC Apatin_Spisak_Transporta.xlsm"
+filePathBaza = "R:\Dnevni izvestaji\SPISAK TRANSPORTA\PO DC-u\DC APATIN.xlsx"
+
+
+Call ST(filePathEksport, filePathBaza)
+
+End Sub
+Sub ControlReportNiš()
+
+Dim filePath As String
+Dim filePathEksport As String
+Dim filePathBaza As String
+Dim dc As String
+
+dc = "RS30"
+
+filePath = "R:\Dnevni izvestaji\Spisak transporta - eksportovano\Import_folder\DC Nis_Eksport_Sap_VT11.xlsx"
+Call ExportVT11(filePath, dc)
+filePath = "R:\Dnevni izvestaji\Istek roka\1 Masovni Import\ZOTPREMA\ZOTPREMA NIS.xlsx"
+Call ExportZotprema(filePath, dc)
+
+filePath = "R:\Dnevni izvestaji\Istek roka\1 Masovni Import\DC Niš\Eksport1.xlsx"
+filePathBaza = "R:\Dnevni izvestaji\Istek roka\1 Masovni Import\DC Niš\Baza\baza.xlsx"
+
+Call IR(filePath, filePathBaza)
+
+filePathEksport = "R:\Dnevni izvestaji\Spisak transporta - eksportovano\DC Niš_Spisak_Transporta.xlsm"
+filePathBaza = "R:\Dnevni izvestaji\SPISAK TRANSPORTA\PO DC-u\DC NIS.xlsx"
+
+Call ST(filePathEksport, filePathBaza)
+
+End Sub
+Sub Gratisi()
+
+    Dim SAPGUI As Object
+    Dim App As Object
+    Dim connection As Object
+    Dim session As Object
+    Dim ws As Worksheet
+    Dim row As Long
+    Dim lastRow As Long
+    Dim strValue As String
+    Dim constantValueD8 As String
+    Dim constantValueD6 As String
+
+    ' Set SAP GUI objects
+    Set SAPGUI = GetObject("SAPGUI") ' Get the SAP GUI Scripting object
+    Set App = SAPGUI.GetScriptingEngine ' Get the application
+    Set connection = App.Children(0) ' Get the connection
+    Set session = connection.Children(0) ' Get the session
+
+    ' Set worksheet object and find the last row
+    Set ws = ThisWorkbook.Sheets("Sheet2")
+    lastRow = ws.Cells(ws.Rows.Count, "I").End(xlUp).row
+
+    ' Get constant values from D6 and D8
+    constantValueD8 = ws.Range("D8").Value
+    constantValueD6 = ws.Range("D6").Value
+    constantValueD6 = Left(constantValueD6, 3) ' Take the first 3 characters from D6 string
+
+    ' SAP GUI commands for each row
+    session.FindById("wnd[0]").maximize
+    session.FindById("wnd[0]/tbar[0]/okcd").Text = "/nva01"
+    session.FindById("wnd[0]").sendVKey 0
+    session.FindById("wnd[0]/usr/ctxtVBAK-AUART").Text = "ZO02"
+    session.FindById("wnd[0]/usr/ctxtVBAK-VKORG").Text = "RS10"
+    session.FindById("wnd[0]/usr/ctxtVBAK-VTWEG").Text = "01"
+    session.FindById("wnd[0]/usr/ctxtVBAK-SPART").Text = "01"
+    session.FindById("wnd[0]/usr/ctxtVBAK-SPART").SetFocus
+    session.FindById("wnd[0]/usr/ctxtVBAK-SPART").CaretPosition = 2
+    session.FindById("wnd[0]").sendVKey 0
+
+    For row = 17 To lastRow
+        If ws.Cells(row, "I").Value = "" Then Exit For ' Exit loop if empty
+        
+        ' Check if there's a popup and press button if present
+        On Error Resume Next ' Skip error if no pop-up
+        If Not session.FindById("wnd[1]/tbar[0]/btn[0]", False) Is Nothing Then
+            session.FindById("wnd[1]/tbar[0]/btn[0]").Press ' Press the button if pop-up appears
+        End If
+        On Error GoTo 0 ' Resume normal error handling
+
+        ' Replace with data from Excel
+        session.FindById("wnd[0]/usr/subSUBSCREEN_HEADER:SAPMV45A:4021/subPART-SUB:SAPMV45A:4701/ctxtKUAGV-KUNNR").Text = ws.Cells(row, "I").Value ' Column I
+        
+        ' Handle error for this specific line, with another check for pop-up
+        On Error Resume Next
+        session.FindById("wnd[0]").sendVKey 0
+        If Err.Number <> 0 Then
+            session.FindById("wnd[1]/tbar[0]/btn[0]").Press ' Press if there's a popup
+            Err.Clear ' Clear the error
+        End If
+        On Error GoTo 0
+        
+        ' Continue with the rest of the process
+        session.FindById("wnd[0]/usr/tabsTAXI_TABSTRIP_OVERVIEW/tabpT\02/ssubSUBSCREEN_BODY:SAPMV45A:4401/ctxtRV45A-DWERK").Text = ws.Cells(row, "A").Value 'Column A
+        session.FindById("wnd[0]/usr/tabsTAXI_TABSTRIP_OVERVIEW/tabpT\02/ssubSUBSCREEN_BODY:SAPMV45A:4401/ctxtRV45A-DWERK").SetFocus
+        session.FindById("wnd[0]/usr/tabsTAXI_TABSTRIP_OVERVIEW/tabpT\02/ssubSUBSCREEN_BODY:SAPMV45A:4401/ctxtRV45A-DWERK").CaretPosition = 4
+        session.FindById("wnd[0]").sendVKey 0
+        session.FindById("wnd[0]/usr/tabsTAXI_TABSTRIP_OVERVIEW/tabpT\02/ssubSUBSCREEN_BODY:SAPMV45A:4401/subSUBSCREEN_TC:SAPMV45A:4900/tblSAPMV45ATCTRL_U_ERF_AUFTRAG/ctxtRV45A-MABNR[1,0]").Text = ws.Cells(row, "D").Value ' Column D
+        session.FindById("wnd[0]/usr/tabsTAXI_TABSTRIP_OVERVIEW/tabpT\02/ssubSUBSCREEN_BODY:SAPMV45A:4401/subSUBSCREEN_TC:SAPMV45A:4900/tblSAPMV45ATCTRL_U_ERF_AUFTRAG/txtRV45A-KWMENG[2,0]").Text = ws.Cells(row, "F").Value ' Column F
+        session.FindById("wnd[0]/usr/tabsTAXI_TABSTRIP_OVERVIEW/tabpT\02/ssubSUBSCREEN_BODY:SAPMV45A:4401/subSUBSCREEN_TC:SAPMV45A:4900/tblSAPMV45ATCTRL_U_ERF_AUFTRAG/ctxtVBAP-AUFNR[4,0]").Text = constantValueD8 ' Constant from D8
+        session.FindById("wnd[0]/usr/tabsTAXI_TABSTRIP_OVERVIEW/tabpT\02/ssubSUBSCREEN_BODY:SAPMV45A:4401/subSUBSCREEN_TC:SAPMV45A:4900/tblSAPMV45ATCTRL_U_ERF_AUFTRAG/ctxtVBAP-AUFNR[4,0]").SetFocus
+        session.FindById("wnd[0]/usr/tabsTAXI_TABSTRIP_OVERVIEW/tabpT\02/ssubSUBSCREEN_BODY:SAPMV45A:4401/subSUBSCREEN_TC:SAPMV45A:4900/tblSAPMV45ATCTRL_U_ERF_AUFTRAG/ctxtVBAP-AUFNR[4,0]").CaretPosition = 8
+        session.FindById("wnd[0]").sendVKey 0
+        session.FindById("wnd[0]/usr/tabsTAXI_TABSTRIP_OVERVIEW/tabpT\01").Select
+        session.FindById("wnd[0]/usr/tabsTAXI_TABSTRIP_OVERVIEW/tabpT\01/ssubSUBSCREEN_BODY:SAPMV45A:4400/ssubHEADER_FRAME:SAPMV45A:4440/cmbVBAK-AUGRU").Key = constantValueD6 ' First 3 characters from D6
+        session.FindById("wnd[0]/usr/tabsTAXI_TABSTRIP_OVERVIEW/tabpT\01/ssubSUBSCREEN_BODY:SAPMV45A:4400/ssubHEADER_FRAME:SAPMV45A:4440/cmbVBAK-AUGRU").SetFocus
+        
+        
+        
+        
+        session.FindById("wnd[0]/usr/subSUBSCREEN_HEADER:SAPMV45A:4021/btnBT_HEAD").Press
+        session.FindById("wnd[0]/usr/tabsTAXI_TABSTRIP_HEAD/tabpT\09").Select
+        session.FindById("wnd[0]/usr/tabsTAXI_TABSTRIP_HEAD/tabpT\09/ssubSUBSCREEN_BODY:SAPMV45A:4152/subSUBSCREEN_TEXT:SAPLV70T:2100/cntlSPLITTER_CONTAINER/shellcont/shellcont/shell/shellcont[1]/shell").Text = ws.Cells(row, "C").Value
+        session.FindById("wnd[0]/usr/tabsTAXI_TABSTRIP_HEAD/tabpT\09/ssubSUBSCREEN_BODY:SAPMV45A:4152/subSUBSCREEN_TEXT:SAPLV70T:2100/cntlSPLITTER_CONTAINER/shellcont/shellcont/shell/shellcont[1]/shell").SetSelectionIndexes 5, 5
+        session.FindById("wnd[0]/tbar[0]/btn[3]").Press
+        
+        
+        
+        session.FindById("wnd[0]").sendVKey 0
+
+        ' Check if another pop-up appears after saving
+        On Error Resume Next
+        If Not session.FindById("wnd[1]/tbar[0]/btn[0]", False) Is Nothing Then
+            session.FindById("wnd[1]/tbar[0]/btn[0]").Press
+        End If
+        On Error GoTo 0
+
+        ' Continue with saving the order
+        session.FindById("wnd[0]").sendVKey 11
+
+    Next row
+
+End Sub
+Sub zvout()
+
+If Not IsObject(application) Then
+   Set SapGuiAuto = GetObject("SAPGUI")
+   Set application = SapGuiAuto.GetScriptingEngine
+End If
+If Not IsObject(connection) Then
+   Set connection = application.Children(0)
+End If
+If Not IsObject(session) Then
+   Set session = connection.Children(0)
+End If
+If IsObject(WScript) Then
+   WScript.ConnectObject session, "on"
+   WScript.ConnectObject application, "on"
+End If
+
+Dim dateValue As Date
+Dim formattedDate As String
+Dim formattedDateStart As String
+dateValue = Date
+
+formattedDate = Format(dateValue, "dd.mm.yyyy")
+dateValue = Date - 14
+formattedDateStart = Format(dateValue, "dd.mm.yyyy")
+
+session.FindById("wnd[0]").maximize
+session.FindById("wnd[0]/tbar[0]/okcd").Text = "/nzv_out"
+session.FindById("wnd[0]").sendVKey 0
+session.FindById("wnd[0]/usr/ctxtSO_WERKS-LOW").Text = "RS40"
+session.FindById("wnd[0]/usr/ctxtSO_ERDAT-LOW").Text = formattedDateStart
+session.FindById("wnd[0]/usr/ctxtSO_ERDAT-HIGH").Text = formattedDate
+session.FindById("wnd[0]/usr/ctxtSO_ERDAT-HIGH").SetFocus
+session.FindById("wnd[0]/usr/ctxtSO_ERDAT-HIGH").CaretPosition = 10
+session.FindById("wnd[0]/tbar[1]/btn[8]").Press
+session.FindById("wnd[1]/tbar[0]/btn[0]").Press
+session.FindById("wnd[0]/tbar[1]/btn[8]").Press
+session.FindById("wnd[1]/usr/ctxtDY_PATH").Text = "R:\DC Apatin RS40\ROADNET"
+session.FindById("wnd[1]/usr/ctxtDY_FILENAME").Text = "OTP"
+session.FindById("wnd[1]/usr/ctxtDY_FILENAME").CaretPosition = 3
+session.FindById("wnd[1]/tbar[0]/btn[11]").Press
+session.FindById("wnd[0]/tbar[0]/btn[3]").Press
+session.FindById("wnd[0]/usr/ctxtSO_WERKS-LOW").Text = "RS30"
+session.FindById("wnd[0]/usr/ctxtSO_WERKS-LOW").SetFocus
+session.FindById("wnd[0]/usr/ctxtSO_WERKS-LOW").CaretPosition = 4
+session.FindById("wnd[0]/tbar[1]/btn[8]").Press
+session.FindById("wnd[1]/tbar[0]/btn[0]").Press
+session.FindById("wnd[0]/tbar[1]/btn[8]").Press
+session.FindById("wnd[1]/usr/ctxtDY_PATH").Text = "R:\DC Niš\RoadNet"
+session.FindById("wnd[1]/usr/ctxtDY_FILENAME").Text = "OTP.05"
+session.FindById("wnd[1]/usr/ctxtDY_FILENAME").CaretPosition = 6
+session.FindById("wnd[1]/tbar[0]/btn[11]").Press
+session.FindById("wnd[0]/tbar[0]/btn[15]").Press
+session.FindById("wnd[0]/tbar[0]/btn[15]").Press
+
+End Sub
+Sub ControlStanje()
+
+Call ExportVA05
+Call ExportMB52
+
+Dim xlApp As Object
+Dim xlWorkbook As Object
+Dim xlWorksheet As Object
+
+' Paths to the Excel files
+filePath = "C:\Users\a428079\OneDrive - Molson Coors Brewing Company\Desktop\Stanje Dropsize V2.xlsx"
+
+' Create a new Excel application object
+Set xlApp = CreateObject("Excel.Application")
+
+' Make Excel visible
+xlApp.Visible = True
+
+Set xlWorkbook = xlApp.Workbooks.Open(filePath)
+
+
+End Sub
+Sub ControlPakovanje()
+
+Call ExportZotpremaPak
+
+Dim xlApp As Object
+Dim xlWorkbook As Object
+Dim xlWorksheet As Object
+
+' Paths to the Excel files
+filePath = "C:\Users\a428079\OneDrive - Molson Coors Brewing Company\Desktop\Pakovanje PQ V4a.xlsm"
+
+' Create a new Excel application object
+Set xlApp = CreateObject("Excel.Application")
+xlApp.DisplayAlerts = False
+
+' Make Excel visible
+xlApp.Visible = True
+
+Set xlWorkbook = xlApp.Workbooks.Open(filePath)
+xlWorkbook.RefreshAll
+xlWorkbook.Save
+xlApp.DisplayAlerts = True
+
+End Sub
+
+Sub Gratis2()
+
+If Not IsObject(application) Then
+   Set SapGuiAuto = GetObject("SAPGUI")
+   Set application = SapGuiAuto.GetScriptingEngine
+End If
+If Not IsObject(connection) Then
+   Set connection = application.Children(0)
+End If
+If Not IsObject(session) Then
+   Set session = connection.Children(0)
+End If
+If IsObject(WScript) Then
+   WScript.ConnectObject session, "on"
+   WScript.ConnectObject application, "on"
+End If
+
+Dim row As Long
+Dim ws As Worksheet
+Dim sapMABNR As String
+Dim sapKWMENG As String
+Dim sapAUFNR As String
+Dim sapFixedC8 As String
+Dim sapFixedC6 As String
+Dim sapFixedL4 As String
+
+Dim sapRowIndex As Integer
+sapRowIndex = 0  ' Initialize SAP row index
+
+' Set the worksheet where your data is located
+Set ws = ThisWorkbook.Sheets("Sheet3")
+
+' Get fixed values from the specific cells
+sapFixedC8 = ws.Range("C8").Value
+sapFixedC6 = ws.Range("C6").Value
+sapFixedL4 = ws.Range("L4").Value
+sapFixedC6 = Left(sapFixedC6, 3) ' Take the first 3 characters from D6 string
+
+' Loop starting from row 12 in column B
+row = 12
+    session.FindById("wnd[0]/usr/subSUBSCREEN_HEADER:SAPMV45A:4021/subPART-SUB:SAPMV45A:4701/ctxtKUAGV-KUNNR").Text = "N33333"
+    session.FindById("wnd[0]/usr/tabsTAXI_TABSTRIP_OVERVIEW/tabpT\02/ssubSUBSCREEN_BODY:SAPMV45A:4401/ctxtRV45A-DWERK").Text = "RS30"
+    session.FindById("wnd[0]/usr/tabsTAXI_TABSTRIP_OVERVIEW/tabpT\02/ssubSUBSCREEN_BODY:SAPMV45A:4401/ctxtRV45A-DWERK").SetFocus
+    session.FindById("wnd[0]/usr/tabsTAXI_TABSTRIP_OVERVIEW/tabpT\02/ssubSUBSCREEN_BODY:SAPMV45A:4401/ctxtRV45A-DWERK").CaretPosition = 4
+    session.FindById("wnd[0]").sendVKey 0
+    
+
+Dim rowCount As Integer
+Dim CurrentRow As Integer
+
+Set session = SapGuiAuto.GetScriptingEngine.FindById("wnd[0]") ' Adjust this line to match your specific session setup
+rowCount = 10 ' Set the number of rows to iterate
+
+For CurrentRow = 0 To rowCount - 1
+    session.FindById("wnd[0]/usr/tabsTAXI_TABSTRIP_OVERVIEW/tabpT\02/ssubSUBSCREEN_BODY:SAPMV45A:4401/subSUBSCREEN_TC:SAPMV45A:4900/tblSAPMV45ATCTRL_U_ERF_AUFTRAG/ctxtRV45A-MABNR[1," & CurrentRow & "]").Text = "812"
+    session.FindById("wnd[0]/usr/tabsTAXI_TABSTRIP_OVERVIEW/tabpT\02/ssubSUBSCREEN_BODY:SAPMV45A:4401/subSUBSCREEN_TC:SAPMV45A:4900/tblSAPMV45ATCTRL_U_ERF_AUFTRAG/txtRV45A-KWMENG[2," & CurrentRow & "]").Text = "2"
+    session.FindById("wnd[0]/usr/tabsTAXI_TABSTRIP_OVERVIEW/tabpT\02/ssubSUBSCREEN_BODY:SAPMV45A:4401/subSUBSCREEN_TC:SAPMV45A:4900/tblSAPMV45ATCTRL_U_ERF_AUFTRAG/ctxtVBAP-AUFNR[4," & CurrentRow & "]").Text = "20000199"
+    
+    session.FindById("wnd[0]/usr/tabsTAXI_TABSTRIP_OVERVIEW/tabpT\02/ssubSUBSCREEN_BODY:SAPMV45A:4401/subSUBSCREEN_TC:SAPMV45A:4900/tblSAPMV45ATCTRL_U_ERF_AUFTRAG/ctxtVBAP-AUFNR[4," & CurrentRow & "]").SetFocus
+    session.FindById("wnd[0]/usr/tabsTAXI_TABSTRIP_OVERVIEW/tabpT\02/ssubSUBSCREEN_BODY:SAPMV45A:4401/subSUBSCREEN_TC:SAPMV45A:4900/tblSAPMV45ATCTRL_U_ERF_AUFTRAG/ctxtVBAP-AUFNR[4," & CurrentRow & "]").CaretPosition = 8
+    session.FindById("wnd[0]").sendVKey 0
+Next CurrentRow
+
+
+' Use fixed values from C6 (after loop ends)
+session.FindById("wnd[0]/usr/tabsTAXI_TABSTRIP_OVERVIEW/tabpT\01").Select
+session.FindById("wnd[0]/usr/tabsTAXI_TABSTRIP_OVERVIEW/tabpT\01/ssubSUBSCREEN_BODY:SAPMV45A:4400/ssubHEADER_FRAME:SAPMV45A:4440/cmbVBAK-AUGRU").Key = sapFixedC6
+
+' Continue with the rest of the script
+session.FindById("wnd[0]/usr/tabsTAXI_TABSTRIP_HEAD/tabpT\09").Select
+session.FindById("wnd[0]/usr/tabsTAXI_TABSTRIP_HEAD/tabpT\09/ssubSUBSCREEN_BODY:SAPMV45A:4152/subSUBSCREEN_TEXT:SAPLV70T:2100/cntlSPLITTER_CONTAINER/shellcont/shellcont/shell/shellcont[1]/shell").Text = sapFixedL4 & vbCr
+
+Dim keepClicking As Boolean
+Dim sapError As Integer
+
+keepClicking = True
+On Error Resume Next  ' Error handling to prevent crash if the action is no longer valid
+
+Do While keepClicking
+    ' Try sending the key
+    session.FindById("wnd[0]").sendVKey 0
+    
+    ' Check for errors (e.g., if sendVKey is no longer valid)
+    sapError = Err.Number
+    
+    If sapError <> 0 Then
+        ' If there is an error, stop the loop
+        keepClicking = False
+    End If
+
+    Err.Clear  ' Clear the error number for the next loop iteration
+Loop
+
+On Error GoTo 0  ' Reset error handling
+
+End Sub
+
+Sub UpdateSAPValuesWithDynamicCalculation()
+    Dim ws As Worksheet
+    Dim lastRow As Long
+    Dim i As Long
+    Dim originalValue As String
+    Dim currentValue As Double
+    Dim newValue As Double
+
+    ' Set up SAP connection
+If Not IsObject(application) Then
+   Set SapGuiAuto = GetObject("SAPGUI")
+   Set application = SapGuiAuto.GetScriptingEngine
+End If
+If Not IsObject(connection) Then
+   Set connection = application.Children(0)
+End If
+If Not IsObject(session) Then
+   Set session = connection.Children(0)
+End If
+If IsObject(WScript) Then
+   WScript.ConnectObject session, "on"
+   WScript.ConnectObject application, "on"
+End If
+
+    ' Reference the Excel worksheet
+    Set ws = ThisWorkbook.Sheets("Sheet4") ' Change "Sheet1" to your worksheet name
+    lastRow = ws.Cells(ws.Rows.Count, "A").End(xlUp).row ' Find the last row in column A
+
+    ' Loop through each row in column A
+    For i = 1 To lastRow
+        ' Get the value from column A
+        originalValue = ws.Cells(i, 1).Value
+
+        ' Navigate to the VA02 transaction
+        session.FindById("wnd[0]/tbar[0]/okcd").Text = "/nva02"
+        session.FindById("wnd[0]").sendVKey 0
+
+        ' Update the VBELN field with the value from column A
+        session.FindById("wnd[0]/usr/ctxtVBAK-VBELN").Text = originalValue
+        session.FindById("wnd[0]").sendVKey 0
+
+        ' Update other static fields
+        session.FindById("wnd[0]/usr/tabsTAXI_TABSTRIP_OVERVIEW/tabpT\02/ssubSUBSCREEN_BODY:SAPMV45A:4401/ctxtRV45A-KETDAT").Text = "25.12.2024"
+        session.FindById("wnd[0]/usr/tabsTAXI_TABSTRIP_OVERVIEW/tabpT\02/ssubSUBSCREEN_BODY:SAPMV45A:4401/ctxtRV45A-DWERK").Text = "RS30"
+        session.FindById("wnd[0]").sendVKey 0
+        session.FindById("wnd[0]").sendVKey 0
+        session.FindById("wnd[0]").sendVKey 0
+        session.FindById("wnd[0]").sendVKey 0
+
+        ' Get the current value from KWMENG[2,0]
+        currentValue = CDbl(session.FindById("wnd[0]/usr/tabsTAXI_TABSTRIP_OVERVIEW/tabpT\02/ssubSUBSCREEN_BODY:SAPMV45A:4401/" & _
+                            "subSUBSCREEN_TC:SAPMV45A:4900/tblSAPMV45ATCTRL_U_ERF_AUFTRAG/txtRV45A-KWMENG[2,0]").Text)
+
+        ' Calculate the new value by multiplying by 6
+        newValue = currentValue / 6
+
+        ' Update the KWMENG[2,0] field with the new value
+        session.FindById("wnd[0]/usr/tabsTAXI_TABSTRIP_OVERVIEW/tabpT\02/ssubSUBSCREEN_BODY:SAPMV45A:4401/" & _
+                            "subSUBSCREEN_TC:SAPMV45A:4900/tblSAPMV45ATCTRL_U_ERF_AUFTRAG/txtRV45A-KWMENG[2,0]").Text = newValue
+
+        ' Update additional fields
+        session.FindById("wnd[0]/usr/tabsTAXI_TABSTRIP_OVERVIEW/tabpT\02/ssubSUBSCREEN_BODY:SAPMV45A:4401/" & _
+                            "subSUBSCREEN_TC:SAPMV45A:4900/tblSAPMV45ATCTRL_U_ERF_AUFTRAG/ctxtRV45A-MABNR[1,0]").Text = "759"
+
+        session.FindById("wnd[0]/usr/tabsTAXI_TABSTRIP_OVERVIEW/tabpT\02/ssubSUBSCREEN_BODY:SAPMV45A:4401/" & _
+                            "subSUBSCREEN_TC:SAPMV45A:4900/tblSAPMV45ATCTRL_U_ERF_AUFTRAG/ctxtVBAP-AUFNR[4,0]").Text = "20000335"
+        session.FindById("wnd[0]").sendVKey 0
+        session.FindById("wnd[0]").sendVKey 0
+        session.FindById("wnd[0]").sendVKey 0
+        session.FindById("wnd[0]").sendVKey 0
+        session.FindById("wnd[0]").sendVKey 0
+        
+        session.FindById("wnd[0]/usr/tabsTAXI_TABSTRIP_OVERVIEW/tabpT\02/ssubSUBSCREEN_BODY:SAPMV45A:4401/" & _
+        "subSUBSCREEN_TC:SAPMV45A:4900/tblSAPMV45ATCTRL_U_ERF_AUFTRAG/ctxtVBAP-AUFNR[4,0]").Text = "20000335"
+        session.FindById("wnd[0]").sendVKey 0
+        
+        ' Confirm updates and proceed
+        session.FindById("wnd[0]").sendVKey 11
+        session.FindById("wnd[0]").sendVKey 0
+
+    Next i
+
+    MsgBox "Process completed for all rows in column A."
+
+End Sub
+
+
+
+Sub Brisanje()
+If Not IsObject(application) Then
+   Set SapGuiAuto = GetObject("SAPGUI")
+   Set application = SapGuiAuto.GetScriptingEngine
+End If
+If Not IsObject(connection) Then
+   Set connection = application.Children(0)
+End If
+If Not IsObject(session) Then
+   Set session = connection.Children(0)
+End If
+If IsObject(WScript) Then
+   WScript.ConnectObject session, "on"
+   WScript.ConnectObject application, "on"
+End If
+
+Dim i As Integer
+
+For i = 1 To 15
+
+session.FindById("wnd[0]").maximize
+session.FindById("wnd[0]/usr/cntlGRID1/shellcont/shell").CurrentCellColumn = "VBELV"
+session.FindById("wnd[0]/usr/cntlGRID1/shellcont/shell").ClickCurrentCell
+session.FindById("wnd[0]/tbar[1]/btn[34]").Press
+session.FindById("wnd[1]/usr/cmbRV45A-S_ABGRU").Key = "61"
+session.FindById("wnd[1]/tbar[0]/btn[7]").Press
+session.FindById("wnd[2]/tbar[0]/btn[0]").Press
+session.FindById("wnd[0]").sendVKey 11
+session.FindById("wnd[0]/tbar[1]/btn[8]").Press
+
+
+Next i
+
+End Sub
+
+
+
+
