@@ -1037,6 +1037,354 @@ Next i
 
 End Sub
 
+Public SapGuiAuto, application, connection, session
+Declare PtrSafe Sub Sleep Lib "kernel32" (ByVal dwMilliseconds As LongPtr)
+
+Sub SH(dc As String, a As Long)
+
+If Not IsObject(application) Then
+   Set SapGuiAuto = GetObject("SAPGUI")
+   Set application = SapGuiAuto.GetScriptingEngine
+End If
+If Not IsObject(connection) Then
+   Set connection = application.Children(0)
+End If
+If Not IsObject(session) Then
+   Set session = connection.Children(0)
+End If
+If IsObject(WScript) Then
+   WScript.ConnectObject session, "on"
+   WScript.ConnectObject application, "on"
+End If
+
+
+Dim dateValue As Date
+dateValue = Date
+
+Dim formattedDate As String
+formattedDate = Format(dateValue, "dd.mm.yyyy")
+
+session.findById("wnd[0]").maximize
+session.findById("wnd[0]/tbar[0]/okcd").Text = "/nvl10g"
+session.findById("wnd[0]").sendVKey 0
+session.findById("wnd[0]/usr/ctxtST_VSTEL-LOW").Text = dc
+session.findById("wnd[0]/usr/ctxtST_LEDAT-LOW").Text = formattedDate
+session.findById("wnd[0]/usr/ctxtST_LEDAT-LOW").SetFocus
+session.findById("wnd[0]/usr/ctxtST_LEDAT-LOW").caretPosition = 10
+session.findById("wnd[0]/tbar[1]/btn[8]").press
+
+
+session.findById("wnd[0]/usr/cntlGRID1/shellcont/shell").CurrentCellColumn = ""
+session.findById("wnd[0]/usr/cntlGRID1/shellcont/shell").SelectedRows = "0"
+session.findById("wnd[0]/tbar[1]/btn[19]").press
+
+cellValue = session.findById("wnd[0]/usr/cntlGRID1/shellcont/shell").GetCellValue(0, "VBELN")
+
+session.findById("wnd[0]/tbar[0]/btn[15]").press
+session.findById("wnd[0]/tbar[0]/btn[15]").press
+session.findById("wnd[0]/tbar[0]/okcd").Text = "/nvt01n"
+session.findById("wnd[0]").sendVKey 0
+session.findById("wnd[0]/usr/ctxtVTTK-TPLST").Text = dc
+session.findById("wnd[0]/usr/ctxtRV56A-SVTRA").Text = dc
+session.findById("wnd[0]/usr/ctxtRV56A-SVTRA").SetFocus
+session.findById("wnd[0]/usr/ctxtRV56A-SVTRA").caretPosition = 4
+session.findById("wnd[0]/tbar[1]/btn[6]").press
+session.findById("wnd[1]/usr/ctxtS_VBELN-LOW").Text = cellValue
+session.findById("wnd[1]/usr/ctxtS_VBELN-LOW").SetFocus
+session.findById("wnd[1]/usr/ctxtS_VBELN-LOW").caretPosition = 8
+session.findById("wnd[1]/tbar[0]/btn[8]").press
+session.findById("wnd[0]/tbar[1]/btn[16]").press
+session.findById("wnd[0]/usr/tabsHEADER_TABSTRIP2/tabpTABS_OV_EXT_1911/ssubG_HEADER_SUBSCREEN2:SAPMV56A:1911/subEXT_SUBSCREEN2:/DSD/SAPLRP_MV56A_EXTENSION:1025/btn*RV56A-ICON_STDIS").press
+session.findById("wnd[0]/usr/tabsHEADER_TABSTRIP1/tabpTABS_OV_EXT_1901/ssubG_HEADER_SUBSCREEN1:SAPMV56A:1901/subEXT_SUBSCREEN1:/DSD/SAPLRP_MV56A_EXTENSION:1021/ctxtVTTK-/BEV1/RPMOWA").Text = "300006141"
+session.findById("wnd[0]/usr/tabsHEADER_TABSTRIP1/tabpTABS_OV_EXT_1901/ssubG_HEADER_SUBSCREEN1:SAPMV56A:1901/subEXT_SUBSCREEN1:/DSD/SAPLRP_MV56A_EXTENSION:1021/ctxtVTTK-/BEV1/RPMOWA").SetFocus
+session.findById("wnd[0]/usr/tabsHEADER_TABSTRIP1/tabpTABS_OV_EXT_1901/ssubG_HEADER_SUBSCREEN1:SAPMV56A:1901/subEXT_SUBSCREEN1:/DSD/SAPLRP_MV56A_EXTENSION:1021/ctxtVTTK-/BEV1/RPMOWA").caretPosition = 9
+session.findById("wnd[0]").sendVKey 0
+session.findById("wnd[0]").sendVKey 11
+
+session.findById("wnd[0]/sbar").DoubleClick
+
+Dim paText, shipmentNumber As String
+paText = session.findById("wnd[0]/sbar").Text
+shipmentNumber = Mid(paText, 9, 6)  ' Start at position 9, extract 6 characters
+
+    ' Assuming you're working with the active sheet
+    Dim ExcelApp, wb, ws
+    Set ExcelApp = GetObject(, "Excel.Application") ' Use the currently running instance of Excel
+    Set wb = ExcelApp.ActiveWorkbook ' Get the active workbook
+    Set ws = wb.Sheets("Sheet1") ' Access Sheet1
+
+    ' Write the shipment number to cell H2342 in Sheet1
+    ws.Range("H" & a).Value = shipmentNumber
+session.findById("wnd[0]/tbar[0]/btn[15]").press
+
+End Sub
+
+Sub Shuttle2()
+    On Error GoTo ErrorHandler
+
+    Dim ws As Worksheet
+    Dim CurrentRow As Long
+    Dim LastRowH As Long
+    Dim LastRowC As Long
+    Dim ValueD As String
+    Dim ValueG As String
+    Dim ValueC As String
+    Dim LastFourCharsC As String
+    Dim Route As String
+    Dim FirstFourChars As String
+    Dim ValueE As Long
+    Dim a As Long
+
+    ' Set the worksheet (adjust "Sheet1" to your worksheet's name)
+    Set ws = Worksheets("Sheet1")
+    
+    ' SAP GUI Setup
+    If Not IsObject(application) Then
+        Set SapGuiAuto = GetObject("SAPGUI")
+        Set application = SapGuiAuto.GetScriptingEngine
+    End If
+    If Not IsObject(connection) Then
+        Set connection = application.Children(0)
+    End If
+    If Not IsObject(session) Then
+        Set session = connection.Children(0)
+    End If
+    
+    ' Get the first empty row in column H and the last row in column C
+    LastRowH = ws.Cells(ws.Rows.Count, "H").End(xlUp).Row + 1
+    LastRowC = ws.Cells(ws.Rows.Count, "C").End(xlUp).Row
+    
+    ' Start processing rows
+    For CurrentRow = LastRowH To LastRowC
+        ' Check if column H is empty
+        If IsEmpty(ws.Cells(CurrentRow, "H").Value) Then
+            ' Check if column E contains 28 or 26
+            ValueE = ws.Cells(CurrentRow, "E").Value
+            If ValueE = 28 Or ValueE = 26 Then
+                ' Get values from other columns
+                ValueD = ws.Cells(CurrentRow, "D").Value ' Column D
+                ValueG = ws.Cells(CurrentRow, "G").Value ' Column G
+                ValueC = ws.Cells(CurrentRow, "C").Value ' Column C
+                
+                ' Extract first 4 characters and last 4 characters
+                FirstFourChars = Left(ValueC, 4)
+                LastFourCharsC = Right(ValueC, 4)
+                
+                ' Determine the route based on FirstFourChars
+                If StrComp(FirstFourChars, "RS10", vbTextCompare) = 0 Then
+                    Route = "J25261"
+                ElseIf StrComp(FirstFourChars, "RS70", vbTextCompare) = 0 Then
+                    Route = "J25269"
+                Else
+                    Route = "" ' Default case
+                End If
+                
+                 
+
+                ' SAP Automation
+                session.findById("wnd[0]").maximize
+                session.findById("wnd[0]/tbar[0]/okcd").Text = "/nme21n"
+                session.findById("wnd[0]").sendVKey 0
+                session.findById("wnd[0]/usr/subSUB0:SAPLMEGUI:0013/subSUB0:SAPLMEGUI:0030/subSUB1:SAPLMEGUI:1105/ctxtMEPO_TOPLINE-SUPERFIELD").Text = FirstFourChars
+                session.findById("wnd[0]/usr/subSUB0:SAPLMEGUI:0013/subSUB2:SAPLMEVIEWS:1100/subSUB2:SAPLMEVIEWS:1200/subSUB1:SAPLMEGUI:1211/tblSAPLMEGUITC_1211/ctxtMEPO1211-EMATN[4,0]").Text = ValueD
+                session.findById("wnd[0]/usr/subSUB0:SAPLMEGUI:0013/subSUB2:SAPLMEVIEWS:1100/subSUB2:SAPLMEVIEWS:1200/subSUB1:SAPLMEGUI:1211/tblSAPLMEGUITC_1211/txtMEPO1211-MENGE[5,0]").Text = ValueG
+                session.findById("wnd[0]/usr/subSUB0:SAPLMEGUI:0013/subSUB2:SAPLMEVIEWS:1100/subSUB2:SAPLMEVIEWS:1200/subSUB1:SAPLMEGUI:1211/tblSAPLMEGUITC_1211/ctxtMEPO1211-NAME1[6,0]").Text = LastFourCharsC
+                session.findById("wnd[0]").sendVKey 0
+                session.findById("wnd[0]/usr/subSUB0:SAPLMEGUI:0010/subSUB3:SAPLMEVIEWS:1100/subSUB2:SAPLMEVIEWS:1200/subSUB1:SAPLMEGUI:1301/subSUB2:SAPLMEGUI:1303/tabsITEM_DETAIL/tabpTABIDT19/ssubTABSTRIPCONTROL1SUB:SAPLMEGUI:1331/ctxtMEPO1331-ROUTE").Text = Route
+                session.findById("wnd[0]").sendVKey 0
+                session.findById("wnd[0]").sendVKey 11
+                session.findById("wnd[1]/usr/btnSPOP-VAROPTION1").press
+                session.findById("wnd[0]/tbar[0]/btn[15]").press
+                
+                ' Custom function call
+                SH FirstFourChars, CurrentRow
+            End If
+        End If
+    Next CurrentRow
+
+    MsgBox "Process completed successfully.", vbInformation
+    Exit Sub
+
+ErrorHandler:
+    MsgBox "An error occurred: " & Err.Description, vbCritical
+End Sub
+
+
+
+
+Sub SH2(dc As String, a As Long)
+
+If Not IsObject(application) Then
+   Set SapGuiAuto = GetObject("SAPGUI")
+   Set application = SapGuiAuto.GetScriptingEngine
+End If
+If Not IsObject(connection) Then
+   Set connection = application.Children(0)
+End If
+If Not IsObject(session) Then
+   Set session = connection.Children(0)
+End If
+If IsObject(WScript) Then
+   WScript.ConnectObject session, "on"
+   WScript.ConnectObject application, "on"
+End If
+
+
+Dim dateValue As Date
+dateValue = Date
+
+Dim formattedDate As String
+formattedDate = Format(dateValue, "dd.mm.yyyy")
+
+session.findById("wnd[0]").maximize
+session.findById("wnd[0]/tbar[0]/okcd").Text = "/nvl10g"
+session.findById("wnd[0]").sendVKey 0
+session.findById("wnd[0]/usr/ctxtST_VSTEL-LOW").Text = dc
+session.findById("wnd[0]/usr/ctxtST_LEDAT-LOW").Text = formattedDate
+session.findById("wnd[0]/usr/ctxtST_LEDAT-LOW").SetFocus
+session.findById("wnd[0]/usr/ctxtST_LEDAT-LOW").caretPosition = 10
+session.findById("wnd[0]/tbar[1]/btn[8]").press
+
+
+session.findById("wnd[0]/usr/cntlGRID1/shellcont/shell").CurrentCellColumn = ""
+session.findById("wnd[0]/usr/cntlGRID1/shellcont/shell").SelectedRows = "0"
+session.findById("wnd[0]/tbar[1]/btn[19]").press
+
+cellValue = session.findById("wnd[0]/usr/cntlGRID1/shellcont/shell").GetCellValue(0, "VBELN")
+
+session.findById("wnd[0]/tbar[0]/btn[15]").press
+session.findById("wnd[0]/tbar[0]/btn[15]").press
+session.findById("wnd[0]/tbar[0]/okcd").Text = "/nvt01n"
+session.findById("wnd[0]").sendVKey 0
+session.findById("wnd[0]/usr/ctxtVTTK-TPLST").Text = dc
+session.findById("wnd[0]/usr/ctxtRV56A-SVTRA").Text = dc
+session.findById("wnd[0]/usr/ctxtRV56A-SVTRA").SetFocus
+session.findById("wnd[0]/usr/ctxtRV56A-SVTRA").caretPosition = 4
+session.findById("wnd[0]/tbar[1]/btn[6]").press
+session.findById("wnd[1]/usr/ctxtS_VBELN-LOW").Text = cellValue
+session.findById("wnd[1]/usr/ctxtS_VBELN-LOW").SetFocus
+session.findById("wnd[1]/usr/ctxtS_VBELN-LOW").caretPosition = 8
+session.findById("wnd[1]/tbar[0]/btn[8]").press
+session.findById("wnd[0]/tbar[1]/btn[16]").press
+session.findById("wnd[0]/usr/tabsHEADER_TABSTRIP2/tabpTABS_OV_EXT_1911/ssubG_HEADER_SUBSCREEN2:SAPMV56A:1911/subEXT_SUBSCREEN2:/DSD/SAPLRP_MV56A_EXTENSION:1025/btn*RV56A-ICON_STDIS").press
+session.findById("wnd[0]/usr/tabsHEADER_TABSTRIP1/tabpTABS_OV_EXT_1901/ssubG_HEADER_SUBSCREEN1:SAPMV56A:1901/subEXT_SUBSCREEN1:/DSD/SAPLRP_MV56A_EXTENSION:1021/ctxtVTTK-/BEV1/RPMOWA").Text = "300006141"
+session.findById("wnd[0]/usr/tabsHEADER_TABSTRIP1/tabpTABS_OV_EXT_1901/ssubG_HEADER_SUBSCREEN1:SAPMV56A:1901/subEXT_SUBSCREEN1:/DSD/SAPLRP_MV56A_EXTENSION:1021/ctxtVTTK-/BEV1/RPMOWA").SetFocus
+session.findById("wnd[0]/usr/tabsHEADER_TABSTRIP1/tabpTABS_OV_EXT_1901/ssubG_HEADER_SUBSCREEN1:SAPMV56A:1901/subEXT_SUBSCREEN1:/DSD/SAPLRP_MV56A_EXTENSION:1021/ctxtVTTK-/BEV1/RPMOWA").caretPosition = 9
+session.findById("wnd[0]").sendVKey 0
+session.findById("wnd[0]").sendVKey 11
+
+session.findById("wnd[0]/sbar").DoubleClick
+
+Dim paText, shipmentNumber As String
+paText = session.findById("wnd[0]/sbar").Text
+shipmentNumber = Mid(paText, 9, 6)  ' Start at position 9, extract 6 characters
+
+    ' Assuming you're working with the active sheet
+    Dim ExcelApp, wb, ws
+    Set ExcelApp = GetObject(, "Excel.Application") ' Use the currently running instance of Excel
+    Set wb = ExcelApp.ActiveWorkbook ' Get the active workbook
+    Set ws = wb.Sheets("Sheet1") ' Access Sheet1
+
+    ' Write the shipment number to cell H2342 in Sheet1
+    ws.Range("H" & a).Value = shipmentNumber
+session.findById("wnd[0]/tbar[0]/btn[15]").press
+
+End Sub
+
+Sub Shuttle()
+    On Error GoTo ErrorHandler
+
+    Dim ws As Worksheet
+    Dim CurrentRow As Long
+    Dim LastRowH As Long
+    Dim LastRowC As Long
+    Dim ValueD As String
+    Dim ValueG As String
+    Dim ValueC As String
+    Dim LastFourCharsC As String
+    Dim Route As String
+    Dim FirstFourChars As String
+    Dim ValueE As Long
+    Dim a As Long
+
+    ' Set the worksheet (adjust "Sheet1" to your worksheet's name)
+    Set ws = Worksheets("Sheet1")
+    
+    ' SAP GUI Setup
+    If Not IsObject(application) Then
+        Set SapGuiAuto = GetObject("SAPGUI")
+        Set application = SapGuiAuto.GetScriptingEngine
+    End If
+    If Not IsObject(connection) Then
+        Set connection = application.Children(0)
+    End If
+    If Not IsObject(session) Then
+        Set session = connection.Children(0)
+    End If
+    
+    ' Get the first empty row in column H and the last row in column C
+    LastRowH = ws.Cells(ws.Rows.Count, "H").End(xlUp).Row + 1
+    LastRowC = ws.Cells(ws.Rows.Count, "C").End(xlUp).Row
+    
+    ' Start processing rows
+    For CurrentRow = LastRowH To LastRowC
+        ' Check if column H is empty
+        If IsEmpty(ws.Cells(CurrentRow, "H").Value) Then
+            ' Check if column E contains 28 or 26
+            ValueE = ws.Cells(CurrentRow, "E").Value
+            If ValueE = 28 Or ValueE = 26 Then
+                ' Get values from other columns
+                ValueD = ws.Cells(CurrentRow, "D").Value ' Column D
+                ValueG = ws.Cells(CurrentRow, "G").Value ' Column G
+                ValueC = ws.Cells(CurrentRow, "C").Value ' Column C
+                
+                ' Extract first 4 characters and last 4 characters
+                FirstFourChars = Left(ValueC, 4)
+                LastFourCharsC = Right(ValueC, 4)
+                
+                ' Determine the route based on FirstFourChars
+                If StrComp(FirstFourChars, "RS10", vbTextCompare) = 0 Then
+                    Route = "J25261"
+                ElseIf StrComp(FirstFourChars, "RS70", vbTextCompare) = 0 Then
+                    Route = "J25269"
+                Else
+                    Route = "" ' Default case
+                End If
+                
+                 
+
+                ' SAP Automation
+                session.findById("wnd[0]").maximize
+                session.findById("wnd[0]/tbar[0]/okcd").Text = "/nme21n"
+                session.findById("wnd[0]").sendVKey 0
+                session.findById("wnd[0]/usr/subSUB0:SAPLMEGUI:0013/subSUB0:SAPLMEGUI:0030/subSUB1:SAPLMEGUI:1105/ctxtMEPO_TOPLINE-SUPERFIELD").Text = FirstFourChars
+                session.findById("wnd[0]/usr/subSUB0:SAPLMEGUI:0013/subSUB2:SAPLMEVIEWS:1100/subSUB2:SAPLMEVIEWS:1200/subSUB1:SAPLMEGUI:1211/tblSAPLMEGUITC_1211/ctxtMEPO1211-EMATN[4,0]").Text = ValueD
+                session.findById("wnd[0]/usr/subSUB0:SAPLMEGUI:0013/subSUB2:SAPLMEVIEWS:1100/subSUB2:SAPLMEVIEWS:1200/subSUB1:SAPLMEGUI:1211/tblSAPLMEGUITC_1211/txtMEPO1211-MENGE[5,0]").Text = ValueG
+                session.findById("wnd[0]/usr/subSUB0:SAPLMEGUI:0013/subSUB2:SAPLMEVIEWS:1100/subSUB2:SAPLMEVIEWS:1200/subSUB1:SAPLMEGUI:1211/tblSAPLMEGUITC_1211/ctxtMEPO1211-NAME1[6,0]").Text = LastFourCharsC
+                session.findById("wnd[0]").sendVKey 0
+                session.findById("wnd[0]/usr/subSUB0:SAPLMEGUI:0010/subSUB3:SAPLMEVIEWS:1100/subSUB2:SAPLMEVIEWS:1200/subSUB1:SAPLMEGUI:1301/subSUB2:SAPLMEGUI:1303/tabsITEM_DETAIL/tabpTABIDT19/ssubTABSTRIPCONTROL1SUB:SAPLMEGUI:1331/ctxtMEPO1331-ROUTE").Text = Route
+                session.findById("wnd[0]").sendVKey 0
+                session.findById("wnd[0]").sendVKey 11
+                session.findById("wnd[1]/usr/btnSPOP-VAROPTION1").press
+                session.findById("wnd[0]/tbar[0]/btn[15]").press
+                
+                ' Custom function call
+                SH2 FirstFourChars, CurrentRow
+            End If
+        End If
+    Next CurrentRow
+
+    MsgBox "Process completed successfully.", vbInformation
+    Exit Sub
+
+ErrorHandler:
+    MsgBox "An error occurred: " & Err.Description, vbCritical
+End Sub
+
+
+
+
+
 
 
 
